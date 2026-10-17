@@ -303,7 +303,7 @@
       box-shadow: 0 4px 14px rgb(114 85 232 / 10%);
     }
 
-    .answer:focus-visible, .primary-button:focus-visible {
+    .answer:focus-visible, .primary-button:focus-visible, .review-button:focus-visible {
       outline: 3px solid var(--purple);
       outline-offset: 3px;
     }
@@ -487,6 +487,63 @@
 
     .results .primary-button { margin: 0; }
 
+    .review-button {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--purple-dark);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .review-button:hover {
+      border-color: var(--purple);
+      background: var(--surface-soft);
+    }
+
+    .missed-review {
+      margin-top: 30px;
+      text-align: left;
+    }
+
+    .missed-review h3 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      letter-spacing: -.025em;
+    }
+
+    .missed-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .missed-item {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    .missed-question {
+      margin: 0 0 10px;
+      font-weight: 700;
+    }
+
+    .missed-answer, .missed-explanation {
+      margin: 5px 0 0;
+      font-size: 14px;
+    }
+
+    .missed-answer strong { color: var(--muted); }
+    .missed-answer.is-correct strong { color: var(--green); }
+    .missed-explanation { color: var(--muted); }
+
     .footer-note {
       margin: 17px 0 0;
       color: var(--muted);
@@ -648,7 +705,7 @@
       }
     ];
 
-    const state = { index: 0, score: 0, answered: false };
+    const state = { index: 0, score: 0, answered: false, missedAnswers: [] };
     let questionCount = document.getElementById("question-count");
     let score = document.getElementById("score");
     let progressTrack = document.getElementById("progress-track");
@@ -715,6 +772,8 @@
       const correct = selectedIndex === current.answer;
       const correctButton = buttons[current.answer];
       const selectedButton = buttons[selectedIndex];
+
+      if (!correct) state.missedAnswers.push({ questionIndex: state.index, selectedIndex });
 
       buttons.forEach((button) => { button.disabled = true; });
       if (correct) {
@@ -787,8 +846,70 @@
 
       const actions = document.createElement("div");
       actions.className = "result-actions";
-      actions.append(resultScore, restart);
+      actions.append(resultScore);
+
+      let missedReview;
+      if (state.missedAnswers.length > 0) {
+        const reviewButton = document.createElement("button");
+        reviewButton.type = "button";
+        reviewButton.className = "review-button";
+        reviewButton.textContent = `Review missed answers (${state.missedAnswers.length})`;
+        reviewButton.setAttribute("aria-expanded", "false");
+        reviewButton.setAttribute("aria-controls", "missed-review");
+
+        missedReview = document.createElement("section");
+        missedReview.className = "missed-review";
+        missedReview.id = "missed-review";
+        missedReview.hidden = true;
+        missedReview.setAttribute("aria-label", "Missed answer review");
+
+        const reviewTitle = document.createElement("h3");
+        reviewTitle.textContent = "Questions to explore again";
+        const missedList = document.createElement("ol");
+        missedList.className = "missed-list";
+
+        state.missedAnswers.forEach(({ questionIndex, selectedIndex }) => {
+          const missed = questions[questionIndex];
+          const item = document.createElement("li");
+          item.className = "missed-item";
+
+          const question = document.createElement("h4");
+          question.className = "missed-question";
+          question.textContent = missed.question;
+
+          const selectedAnswer = document.createElement("p");
+          selectedAnswer.className = "missed-answer";
+          const selectedLabel = document.createElement("strong");
+          selectedLabel.textContent = "Your answer: ";
+          selectedAnswer.append(selectedLabel, document.createTextNode(missed.options[selectedIndex]));
+
+          const correctAnswer = document.createElement("p");
+          correctAnswer.className = "missed-answer is-correct";
+          const correctLabel = document.createElement("strong");
+          correctLabel.textContent = "Correct answer: ";
+          correctAnswer.append(correctLabel, document.createTextNode(missed.options[missed.answer]));
+
+          const explanation = document.createElement("p");
+          explanation.className = "missed-explanation";
+          explanation.textContent = missed.explanation;
+
+          item.append(question, selectedAnswer, correctAnswer, explanation);
+          missedList.append(item);
+        });
+
+        missedReview.append(reviewTitle, missedList);
+        reviewButton.addEventListener("click", () => {
+          const expanded = reviewButton.getAttribute("aria-expanded") === "true";
+          reviewButton.setAttribute("aria-expanded", String(!expanded));
+          reviewButton.textContent = `${expanded ? "Review" : "Hide"} missed answers (${state.missedAnswers.length})`;
+          missedReview.hidden = expanded;
+        });
+        actions.append(reviewButton);
+      }
+
+      actions.append(restart);
       results.append(emoji, title, copy, actions);
+      if (missedReview) results.append(missedReview);
       progressFill.style.width = "100%";
       progressTrack.setAttribute("aria-valuenow", String(questions.length));
       const cardInner = document.querySelector("#quiz-card .card-inner");
@@ -799,6 +920,7 @@
     function startOver() {
       state.index = 0;
       state.score = 0;
+      state.missedAnswers = [];
       document.getElementById("quiz-card").innerHTML = `
         <div class="card-inner">
           <div class="quiz-meta">
