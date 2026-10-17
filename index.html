@@ -705,6 +705,30 @@
       }
     ];
 
+    function shuffle(items) {
+      const shuffled = [...items];
+      for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      return shuffled;
+    }
+
+    function createMissionQuestions() {
+      return shuffle(questions).map((question) => {
+        const options = shuffle(question.options.map((text, index) => ({
+          text,
+          isCorrect: index === question.answer
+        })));
+        return {
+          ...question,
+          options: options.map((option) => option.text),
+          answer: options.findIndex((option) => option.isCorrect)
+        };
+      });
+    }
+
+    let missionQuestions = createMissionQuestions();
     const state = { index: 0, score: 0, answered: false, missedAnswers: [] };
     let questionCount = document.getElementById("question-count");
     let score = document.getElementById("score");
@@ -719,9 +743,9 @@
     let nextLabel = document.getElementById("next-label");
 
     function renderQuestion() {
-      const current = questions[state.index];
+      const current = missionQuestions[state.index];
       state.answered = false;
-      questionCount.innerHTML = `Question <strong>${state.index + 1}</strong> of ${questions.length}`;
+      questionCount.innerHTML = `Question <strong>${state.index + 1}</strong> of ${missionQuestions.length}`;
       score.textContent = String(state.score);
       questionKicker.textContent = state.index < 3
         ? "A quick trip through the cosmos"
@@ -729,7 +753,7 @@
           ? "Your mission is right on track"
           : "Final stretch, space explorer";
       questionTitle.textContent = current.question;
-      progressFill.style.width = `${(state.index / questions.length) * 100}%`;
+      progressFill.style.width = `${(state.index / missionQuestions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", String(state.index));
       feedback.className = "feedback";
       feedback.replaceChildren();
@@ -767,7 +791,7 @@
       if (state.answered) return;
       state.answered = true;
 
-      const current = questions[state.index];
+      const current = missionQuestions[state.index];
       const buttons = [...answersContainer.querySelectorAll(".answer")];
       const correct = selectedIndex === current.answer;
       const correctButton = buttons[current.answer];
@@ -799,15 +823,15 @@
       message.textContent = `${correct ? "Stellar! " : `Not quite — ${current.options[current.answer]}. `}${current.explanation}`;
       feedback.append(icon, message);
       hint.textContent = correct ? "That's one for the mission log!" : "Every great explorer learns as they go";
-      nextLabel.textContent = state.index === questions.length - 1 ? "See my results" : "Next question";
+      nextLabel.textContent = state.index === missionQuestions.length - 1 ? "See my results" : "Next question";
       nextButton.disabled = false;
-      progressFill.style.width = `${((state.index + 1) / questions.length) * 100}%`;
+      progressFill.style.width = `${((state.index + 1) / missionQuestions.length) * 100}%`;
       progressTrack.setAttribute("aria-valuenow", String(state.index + 1));
       nextButton.focus();
     }
 
     function showResults() {
-      const percentage = state.score / questions.length;
+      const percentage = state.score / missionQuestions.length;
       const result = percentage === 1
         ? { emoji: "🏆", title: "Out of this world!", copy: "A perfect mission. The cosmos has a new expert, and it's you." }
         : percentage >= .7
@@ -835,7 +859,7 @@
       const resultScore = document.createElement("div");
       resultScore.className = "result-score";
       const scoreValue = document.createElement("strong");
-      scoreValue.textContent = `${state.score}/${questions.length}`;
+      scoreValue.textContent = `${state.score}/${missionQuestions.length}`;
       resultScore.append(scoreValue, document.createTextNode("correct answers"));
 
       const restart = document.createElement("button");
@@ -869,7 +893,7 @@
         missedList.className = "missed-list";
 
         state.missedAnswers.forEach(({ questionIndex, selectedIndex }) => {
-          const missed = questions[questionIndex];
+          const missed = missionQuestions[questionIndex];
           const item = document.createElement("li");
           item.className = "missed-item";
 
@@ -911,7 +935,7 @@
       results.append(emoji, title, copy, actions);
       if (missedReview) results.append(missedReview);
       progressFill.style.width = "100%";
-      progressTrack.setAttribute("aria-valuenow", String(questions.length));
+      progressTrack.setAttribute("aria-valuenow", String(missionQuestions.length));
       const cardInner = document.querySelector("#quiz-card .card-inner");
       cardInner.replaceChildren(cardInner.querySelector(".quiz-meta"), progressTrack, results);
       title.focus();
@@ -920,6 +944,7 @@
     function startOver() {
       state.index = 0;
       state.score = 0;
+      missionQuestions = createMissionQuestions();
       state.missedAnswers = [];
       document.getElementById("quiz-card").innerHTML = `
         <div class="card-inner">
@@ -959,7 +984,7 @@
 
     function advance() {
       if (!state.answered) return;
-      if (state.index === questions.length - 1) {
+      if (state.index === missionQuestions.length - 1) {
         showResults();
         return;
       }
