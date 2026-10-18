@@ -400,6 +400,30 @@
       font-size: 12px;
     }
 
+    .shortcut-legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .shortcut-legend strong {
+      display: inline-grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 10px;
+      letter-spacing: .02em;
+    }
+
     .primary-button {
       display: inline-flex;
       min-height: 44px;
@@ -629,7 +653,10 @@
         <div class="answers" id="answers"></div>
         <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
         <div class="card-footer">
-          <span class="hint" id="hint">Pick the best answer to continue</span>
+          <div>
+            <span class="hint" id="hint">Pick the best answer to continue</span>
+            <div class="shortcut-legend" id="shortcut-legend" aria-live="polite"><strong>A</strong><strong>B</strong><strong>C</strong><strong>D</strong> select answers</div>
+          </div>
           <button class="primary-button" id="next-button" type="button" disabled>
             <span id="next-label">Lock in answer</span><span aria-hidden="true">→</span>
           </button>
@@ -739,8 +766,16 @@
     let answersContainer = document.getElementById("answers");
     let feedback = document.getElementById("feedback");
     let hint = document.getElementById("hint");
+    let shortcutLegend = document.getElementById("shortcut-legend");
     let nextButton = document.getElementById("next-button");
     let nextLabel = document.getElementById("next-label");
+
+    function updateKeyboardLegend(mode = "question") {
+      if (!shortcutLegend) return;
+      shortcutLegend.innerHTML = mode === "question"
+        ? "<strong>A</strong><strong>B</strong><strong>C</strong><strong>D</strong> select answers"
+        : "<strong>↵</strong> continues to the next question";
+    }
 
     function renderQuestion() {
       const current = missionQuestions[state.index];
@@ -760,6 +795,7 @@
       hint.textContent = "Pick the best answer to continue";
       nextLabel.textContent = "Lock in answer";
       nextButton.disabled = true;
+      updateKeyboardLegend("question");
       answersContainer.replaceChildren();
 
       current.options.forEach((option, index) => {
@@ -823,6 +859,7 @@
       message.textContent = `${correct ? "Stellar! " : `Not quite — ${current.options[current.answer]}. `}${current.explanation}`;
       feedback.append(icon, message);
       hint.textContent = correct ? "That's one for the mission log!" : "Every great explorer learns as they go";
+      updateKeyboardLegend("answer");
       nextLabel.textContent = state.index === missionQuestions.length - 1 ? "See my results" : "Next question";
       nextButton.disabled = false;
       progressFill.style.width = `${((state.index + 1) / missionQuestions.length) * 100}%`;
@@ -958,7 +995,10 @@
           <div class="answers" id="answers"></div>
           <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
           <div class="card-footer">
-            <span class="hint" id="hint">Pick the best answer to continue</span>
+            <div>
+              <span class="hint" id="hint">Pick the best answer to continue</span>
+              <div class="shortcut-legend" id="shortcut-legend" aria-live="polite"><strong>A</strong><strong>B</strong><strong>C</strong><strong>D</strong> select answers</div>
+            </div>
             <button class="primary-button" id="next-button" type="button" disabled><span id="next-label">Lock in answer</span><span aria-hidden="true">→</span></button>
           </div>
         </div>`;
@@ -978,8 +1018,33 @@
       answersContainer = document.getElementById("answers");
       feedback = document.getElementById("feedback");
       hint = document.getElementById("hint");
+      shortcutLegend = document.getElementById("shortcut-legend");
       nextButton = document.getElementById("next-button");
       nextLabel = document.getElementById("next-label");
+    }
+
+    function handleKeyboardShortcuts(event) {
+      const letter = event.key.toLowerCase();
+      const isTypingTarget = event.target && event.target.closest && event.target.closest("button, input, textarea, select");
+
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (letter >= "a" && letter <= "d" && !state.answered) {
+        event.preventDefault();
+        selectAnswer(letter.charCodeAt(0) - 97);
+        return;
+      }
+
+      if (event.key === "Enter" && state.answered && !nextButton.disabled) {
+        if (!isTypingTarget) {
+          event.preventDefault();
+          advance();
+        }
+      }
+
+      if (event.key === " " && isTypingTarget) {
+        return;
+      }
     }
 
     function advance() {
@@ -994,6 +1059,7 @@
     }
 
     nextButton.addEventListener("click", advance);
+    document.addEventListener("keydown", handleKeyboardShortcuts);
     renderQuestion();
   </script>
 </body>
